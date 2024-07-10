@@ -1,6 +1,7 @@
 <?php
 /**
  * Plugin Name: JS Event Debugger
+ * Plugin URI:  https://github.com/stracker-phil/wp-js-debugger
  * Description: While enabled, an additional JS snippet is injected into the page to log all events to the console. Observes native JS events and jQuery events.
  * Author:      Philipp Stracker (Syde)
  * Version:     1.0.0

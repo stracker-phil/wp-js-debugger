@@ -1,163 +1,105 @@
 <?php
 /**
+ * @formatter:off
  * Plugin Name: JS Event Debugger
  * Plugin URI:  https://github.com/stracker-phil/wp-js-debugger
  * Description: While enabled, an additional JS snippet is injected into the page to log all events to the console. Observes native JS events and jQuery events.
  * Author:      Philipp Stracker (Syde)
- * Version:     1.0.0
+ * Version:     1.0.2
+ * @formatter:on
  */
 
 namespace Syde\Debug;
 
+/**
+ * Returns a URL pointing to a file in this plugin.
+ *
+ * @param string $path File path, relative to this plugin.
+ *
+ * @return string Absolute URL to an asset in this plugin.
+ */
+function get_url( string $path ) : string {
+	$plugin_path = plugin_dir_path( __FILE__ );
+	$plugin_url  = plugin_dir_url( __FILE__ );
+	$full_path   = $plugin_path . $path;
+
+	if ( ! file_exists( $full_path ) ) {
+		return '';
+	}
+
+	$full_url = $plugin_url . str_replace( '\\', '/', $path );
+
+	return add_query_arg(
+		[
+			'v' => filemtime( $full_path ),
+		],
+		$full_url
+	);
+}
+
+/**
+ * Generates the debugging script that will be injected into the document.
+ *
+ * @return string Script tags to inject into the page header
+ */
 function get_debugging_script() : string {
-	return <<<EOD
-<script>
-(function() {
-    window.ignoreEvents = ['mousemove', 'message', 'keypress', 'keyup', 'keydown'];
+	$output      = [];
+	$script_urls = [];
 
-    function logEvent(action, source, eventName, target, handler, event, args) {
-        if (window.ignoreEvents.includes(eventName)) {
-            return;
-        }
+	$script_urls['event-logs']    = get_url( 'js/event-logs.js' );
+	$script_urls['global-search'] = get_url( 'js/global-search.js' );
 
-		const isDarkMode = window?.matchMedia('(prefers-color-scheme: dark)')?.matches;
-		const colors = {
-			source: {
-				jQuery: isDarkMode ? '#0ee' : '#0aa',
-				Native: isDarkMode ? '#e0e' : '#a0a',
-			},
-			action: {
-				Add: isDarkMode ? '#8a8' : '#0a0',
-				Remove: isDarkMode ? '#a88' : '#a00',
-				Trigger: isDarkMode ? '#88a' : '#00a',
-			},
+	foreach ( $script_urls as $name => $url ) {
+		if ( ! $url ) {
+			continue;
 		}
 
-		const details = {
-			target,
-			handler,
-			event,
-		}
-		if (args) {
-			details.args = args;
-		}
-
-        console.log(
-			`[%c\${action} %c\${source} %cEvent: %c\${eventName}%c] %o`,
-			`color:\${colors.action[action]}`,
-			`color:\${colors.source[source]}`,
-			'',
-			'font-weight:bold;',
-			'',
-			details
+		$output[] = sprintf(
+			'<script src="%2$s" id="js-debugger-%1$s"></script>',
+			esc_attr( $name ),
+			esc_url( $url )
 		);
-    }
+	}
 
-    // Store original methods
-    var originalAddEventListener = EventTarget.prototype.addEventListener;
-    var originalRemoveEventListener = EventTarget.prototype.removeEventListener;
-
-    // WeakMap to store wrapped listeners
-    var listenerMap = new WeakMap();
-
-    // jQuery event logging
-    (function($) {
-        var originalOn = $.fn.on;
-        var originalOff = $.fn.off;
-
-        $.fn.on = function() {
-            var args = Array.prototype.slice.call(arguments);
-            var events, selector, data, handler;
-            if (typeof args[0] === 'object') {
-                events = args[0];
-                selector = args[1];
-                data = args[2];
-                $.each(events, function(eventName, eventHandler) {
-                    events[eventName] = wrapHandler(eventName, eventHandler);
-                });
-            } else {
-                events = args[0];
-                if (typeof args[1] === 'function') {
-                    handler = args[1];
-                } else {
-                    selector = args[1];
-                    if (typeof args[2] === 'function') {
-                        handler = args[2];
-                    } else {
-                        data = args[2];
-                        handler = args[3];
-                    }
-                }
-                if (handler) {
-                    args[args.length - 1] = wrapHandler(events, handler);
-                }
-            }
-            return originalOn.apply(this, args);
-        };
-
-        $.fn.off = function() {
-            var args = Array.prototype.slice.call(arguments);
-            logEvent('Remove', 'jQuery', args[0] || 'all', this, null, args);
-            return originalOff.apply(this, args);
-        };
-
-        function wrapHandler(eventName, originalHandler) {
-            var wrappedHandler = function(event, ...params) {
-                logEvent('Trigger', 'jQuery', eventName, this, originalHandler, event, params);
-                return originalHandler.apply(this, arguments);
-            };
-
-            // Store reference to wrapped handler
-            if (!listenerMap.has(originalHandler)) {
-                listenerMap.set(originalHandler, new Map());
-            }
-            listenerMap.get(originalHandler).set(eventName, wrappedHandler);
-
-			logEvent('Add', 'jQuery', eventName, this, originalHandler);
-            return wrappedHandler;
-        }
-    })(jQuery);
-
-    // Native event listener logging
-    EventTarget.prototype.addEventListener = function(type, listener, options) {
-        var wrappedListener = function(event) {
-            logEvent('Trigger', 'Native', type, this, listener, event);
-            return listener.apply(this, arguments);
-        };
-
-        // Store reference to wrapped listener
-        if (!listenerMap.has(this)) {
-            listenerMap.set(this, new Map());
-        }
-        listenerMap.get(this).set(listener, wrappedListener);
-
-        logEvent('Add', 'Native', type, this, listener);
-        return originalAddEventListener.call(this, type, wrappedListener, options);
-    };
-
-    EventTarget.prototype.removeEventListener = function(type, listener, options) {
-        var wrappedListener = listenerMap.get(this)?.get(listener);
-        if (wrappedListener) {
-            logEvent('Remove', 'Native', type, this, listenerMap.get(this));
-            listenerMap.get(this).delete(listener);
-            return originalRemoveEventListener.call(this, type, wrappedListener, options);
-        }
-        return originalRemoveEventListener.call(this, type, listener, options);
-    };
-
-    console.log('Event debugging initialized. Ignored events:', window.ignoreEvents);
-})();
-</script>
-EOD;
+	return join( '', $output );
 }
 
-function insert_custom_js_after_jquery( $content ) {
-	$custom_js = get_debugging_script();
-	$pattern   = '/<script[^>]+id="jquery-core-js"[^>]*><\/script>/i';
+/**
+ * Injects the debug script code into the provided content (an HTML string).
+ *
+ * The debug script must be inserted after jQuery, as it overrides some core jQuery methods.
+ * We use regex patterns to detect the location of the jquery-core script and inject the debug
+ * script JS snippet directly afterward.
+ *
+ * @param string $content HTML code of the document to modify.
+ *
+ * @return string Modified content
+ */
+function insert_custom_js_after_jquery( string $content ) : string {
+	$patterns = [
+		// Front-end.
+		'#<script[^>]+id=[\'"]jquery-core-js[\'"][^>]*></script>#i',
 
-	return preg_replace( $pattern, "$0\n$custom_js", $content );
+		// Admin.
+		'#<script[^>]+src=[\'"][^>]*?/wp-admin/load-scripts\.php\?[^>]+?jquery-core[^>]*?[\'"][^>]*></script>#i',
+	];
+
+	foreach ( $patterns as $pattern ) {
+		if ( preg_match( $pattern, $content ) ) {
+			$custom_js = get_debugging_script();
+
+			return preg_replace( $pattern, "$0\n$custom_js", $content );
+		}
+	}
+
+	return $content;
 }
 
+/**
+ * Checks, if the current request should receive JS debugging code.
+ *
+ * @return bool True, if debug script should be injected into the request.
+ */
 function should_insert_js_code() : bool {
 	// Check if the request accepts HTML
 	$accept_header = $_SERVER['HTTP_ACCEPT'] ?? '';
@@ -180,7 +122,7 @@ function should_insert_js_code() : bool {
 	return true;
 }
 
-add_filter( 'wp', function () {
+add_filter( 'wp_loaded', function () {
 	ob_start( function ( $buffer ) {
 		if ( should_insert_js_code() ) {
 			$buffer = insert_custom_js_after_jquery( $buffer );

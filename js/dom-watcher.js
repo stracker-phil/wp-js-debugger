@@ -3,9 +3,26 @@
 		if (!(node instanceof Element)) {
 			return [];
 		}
-		return API.watchElements.filter(selector => exact
-			? node.matches(selector)
-			: (node.matches(selector) || node.querySelector(selector)));
+		return API.watchElements.filter(selector => {
+			if (exact) {
+				return node.matches(selector);
+			} else {
+				if (node.matches(selector)) {
+					return true;
+				}
+				if (node.querySelector(selector)) {
+					return true;
+				}
+				let parent = node.parentElement;
+				while (parent) {
+					if (parent.matches(selector)) {
+						return true;
+					}
+					parent = parent.parentElement;
+				}
+				return false;
+			}
+		});
 	}
 
 	function logMutationsForNodes(nodes, action, type, getSelectors) {

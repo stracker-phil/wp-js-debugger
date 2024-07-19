@@ -60,15 +60,15 @@ function get_config_list( string $const_name, array $default = [] ) : array {
  */
 function get_config() : array {
 	return [
-		'ignore_events'    => get_config_list( 'JS_DEBUG_IGNORE_EVENTS', [
+		'ignoreEvents'   => get_config_list( 'JS_DEBUG_IGNORE_EVENTS', [
 			'mousemove',
 			'message',
 			'keypress',
 			'keyup',
 			'keydown',
 		] ),
-		'watch_elements'   => get_config_list( 'JS_DEBUG_WATCH_ELEMENTS' ),
-		'wait_on_mutation' => (bool) get_config_val( 'JS_DEBUG_WAIT_ON_MUTATION', false ),
+		'watchElements'  => get_config_list( 'JS_DEBUG_WATCH_ELEMENTS' ),
+		'waitOnMutation' => (bool) get_config_val( 'JS_DEBUG_WAIT_ON_MUTATION', false ),
 	];
 }
 
@@ -104,17 +104,9 @@ function get_url( string $path ) : string {
  * @return string
  */
 function get_dynamic_config_script() : string {
-	$config = get_config();
-
-	return sprintf( '
-		<script id="js-debugger-config">(function(API){
-			API.ignoreEvents = %1$s;
-			API.watchElements = %2$s;
-			API.waitOnMutation = %3$s;
-		})(window.JS_DEBUG = {});</script>',
-		json_encode( $config['ignore_events'] ),
-		json_encode( $config['watch_elements'] ),
-		json_encode( $config['wait_on_mutation'] )
+	return sprintf(
+		'<script id="js-debugger-config">window.JS_DEBUG_CONFIG = %s;</script>',
+		json_encode( get_config() )
 	);
 }
 

@@ -34,5 +34,5 @@
 		return originalRemoveEventListener.call(this, type, listener, options);
 	};
 
-	console.log('Event debugging initialized. Ignored events:', window.ignoreEvents);
+	console.info('Event debugging initialized. Ignored events:', API.config.ignoreEvents);
 })(window.JS_DEBUG);

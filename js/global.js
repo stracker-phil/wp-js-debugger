@@ -1,7 +1,12 @@
-(function(API) {
-	console.clear();
+(function(API, config) {
+	if (API._initialized) {
+		return;
+	}
+	API._initialized = true;
 
 	const isDarkMode = window?.matchMedia('(prefers-color-scheme: dark)')?.matches;
+
+	API.config = config;
 
 	API.theme = {
 		event: {
@@ -30,7 +35,7 @@
 	};
 
 	API.logEvent = function logEvent(action, type, eventName, target, handler, event) {
-		if (API.ignoreEvents.includes(eventName)) {
+		if (config.ignoreEvents.includes(eventName)) {
 			return;
 		}
 
@@ -80,4 +85,4 @@
 		console.log(template, ...templateArgs);
 
 	};
-})(window.JS_DEBUG = window.JS_DEBUG || {});
+})(window.JS_DEBUG = window.JS_DEBUG || {}, window.JS_DEBUG_CONFIG);

@@ -3,7 +3,7 @@
 		if (!(node instanceof Element)) {
 			return [];
 		}
-		return API.watchElements.filter(selector => {
+		return API.config.watchElements.filter(selector => {
 			if (exact) {
 				return node.matches(selector);
 			} else {
@@ -30,7 +30,7 @@
 			getSelectors(node).forEach(selector => {
 				API.logMutation(action, type, selector, node, changeInfo);
 
-				if (API.waitOnMutation) {
+				if (API.config.waitOnMutation) {
 					debugger;
 				}
 			});
@@ -77,5 +77,5 @@
 		characterData: true,
 	});
 
-	console.log('Debug script initialized. Watching for mutations on:', API.watchElements);
+	console.info('Debug script initialized. Watching for mutations on:', API.config.watchElements);
 })(window.JS_DEBUG);

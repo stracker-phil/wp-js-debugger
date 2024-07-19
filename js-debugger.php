@@ -11,6 +11,67 @@
 
 namespace Syde\Debug;
 
+$optional_config = __DIR__ . '/config.local.php';
+if ( file_exists( $optional_config ) ) {
+	require_once $optional_config;
+}
+unset( $optional_config );
+
+/**
+ * Returns the value of the requested constant, or a default value
+ *
+ * @param string $const_name
+ * @param mixed  $default
+ *
+ * @return mixed
+ */
+function get_config_val( string $const_name, $default = null ) {
+	if ( defined( $const_name ) ) {
+		return constant( $const_name );
+	}
+
+	return $default;
+}
+
+/**
+ * Returns values for a single config item, from a const or a default value.
+ *
+ * @param string $const_name
+ * @param array  $default
+ *
+ * @return string[] Config values
+ */
+function get_config_list( string $const_name, array $default = [] ) : array {
+	$value = get_config_val( $const_name, $default );
+
+	if ( is_string( $value ) ) {
+		$value = explode( ',', $value );
+	} elseif ( ! is_array( $value ) ) {
+		$value = [];
+	}
+
+	return array_map( 'trim', $value );
+}
+
+/**
+ * Collects config values and returns a single config object with all details.
+ *
+ * @return array
+ */
+function get_config() : array {
+	return [
+		'ignore_events'    => get_config_list( 'JS_DEBUG_IGNORE_EVENTS', [
+			'mousemove',
+			'message',
+			'keypress',
+			'keyup',
+			'keydown',
+		] ),
+		'watch_elements'   => get_config_list( 'JS_DEBUG_WATCH_ELEMENTS' ),
+		'wait_on_mutation' => (bool) get_config_val( 'JS_DEBUG_WAIT_ON_MUTATION', false ),
+	];
+}
+
 /**
  * Returns a URL pointing to a file in this plugin.
  *
@@ -38,18 +99,63 @@ function get_url( string $path ) : string {
 }
 
 /**
- * Generates the debugging script that will be injected into the document.
+ * Returns an inline-script with debug configuration.
+ *
+ * @return string
+ */
+function get_dynamic_config_script() : string {
+	$config = get_config();
+
+	return sprintf( '
+		<script id="js-debugger-config">(function(API){
+			API.ignoreEvents = %1$s;
+			API.watchElements = %2$s;
+			API.waitOnMutation = %3$s;
+		})(window.JS_DEBUG = {});</script>',
+		json_encode( $config['ignore_events'] ),
+		json_encode( $config['watch_elements'] ),
+		json_encode( $config['wait_on_mutation'] )
+	);
+}
+
+/**
+ * Returns the HTML code for debugging code that should be injected at the beginning
+ * of the <head> tag.
  *
  * @return string Script tags to inject into the page header
  */
-function get_debugging_script() : string {
-	$output      = [];
-	$script_urls = [];
+function get_debugging_script_no_deps() : string {
+	return get_dynamic_config_script() . get_html_from_urls( [
+			'global'        => get_url( 'js/global.js' ),
+			'dom-watcher'   => get_url( 'js/dom-watcher.js' ),
+			'event-logs'    => get_url( 'js/event-logs.js' ),
+			'global-search' => get_url( 'js/global-search.js' ),
+		] );
+}
 
-	$script_urls['event-logs']    = get_url( 'js/event-logs.js' );
-	$script_urls['global-search'] = get_url( 'js/global-search.js' );
+/**
+ * Generates the debugging script that should be injected right after jQuery was loaded
+ * but before any other script.
+ *
+ * @return string Script tags to inject into the page header
+ */
+function get_debugging_script_after_jquery() : string {
+	return get_html_from_urls( [
+		'event-logs-jquery' => get_url( 'js/event-logs-jquery.js' ),
+	] );
+}
 
-	foreach ( $script_urls as $name => $url ) {
+/**
+ * Generates full script tags from an array of script URLs.
+ *
+ * @param array $urls List of script URLs
+ *
+ * @return string Script tags to inject into the page header
+ */
+function get_html_from_urls( array $urls ) : string {
+	$output = [];
+
+	foreach ( $urls as $name => $url ) {
 		if ( ! $url ) {
 			continue;
 		}
@@ -76,7 +182,7 @@ function get_debugging_script() : string {
  * @return string Modified content
  */
 function insert_custom_js_after_jquery( string $content ) : string {
-	$patterns = [
+	$jquery_patterns = [
 		// Front-end.
 		'#<script[^>]+id=[\'"]jquery-core-js[\'"][^>]*></script>#i',
 
@@ -84,11 +190,15 @@ function insert_custom_js_after_jquery( string $content ) : string {
 		'#<script[^>]+src=[\'"][^>]*?/wp-admin/load-scripts\.php\?[^>]+?jquery-core[^>]*?[\'"][^>]*></script>#i',
 	];
 
-	foreach ( $patterns as $pattern ) {
-		if ( preg_match( $pattern, $content ) ) {
-			$custom_js = get_debugging_script();
+	$early_code = get_debugging_script_no_deps();
+	$content    = preg_replace( '/<head[^>]*?>/', "$0\n$early_code", $content );
 
-			return preg_replace( $pattern, "$0\n$custom_js", $content );
+	foreach ( $jquery_patterns as $pattern ) {
+		if ( preg_match( $pattern, $content ) ) {
+			$jquery_code = get_debugging_script_after_jquery();
+
+			$content = preg_replace( $pattern, "$0\n$jquery_code", $content );
+			break;
 		}
 	}
 

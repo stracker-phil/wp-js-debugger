@@ -25,10 +25,10 @@
 		});
 	}
 
-	function logMutationsForNodes(nodes, action, type, getSelectors) {
+	function logMutationsForNodes(nodes, action, type, getSelectors, changeInfo = null) {
 		nodes.forEach(node => {
 			getSelectors(node).forEach(selector => {
-				API.logMutation(action, type, selector, node);
+				API.logMutation(action, type, selector, node, changeInfo);
 
 				if (API.waitOnMutation) {
 					debugger;
@@ -46,16 +46,23 @@
 					break;
 
 				case 'attributes':
-					logMutationsForNodes([mutation.target], 'Change', 'Attr', node => getMatchingSelectors(node, true));
+					logMutationsForNodes([mutation.target],
+						'Change',
+						'Attr',
+						node => getMatchingSelectors(node, true),
+						{
+							[mutation.attributeName]: mutation.target.getAttribute(mutation.attributeName),
+						},
+					);
 					break;
 
 				case 'characterData':
 					if (mutation.target.parentNode) {
-						logMutationsForNodes(
-							[mutation.target.parentNode],
+						logMutationsForNodes([mutation.target.parentNode],
 							'Change',
 							'Content',
 							node => getMatchingSelectors(node, true),
+							{ newContent: mutation.target.textContent },
 						);
 					}
 					break;

@@ -57,8 +57,8 @@
 		console.log(template, ...templateArgs);
 	};
 
-	API.logMutation = function logMutation(action, type, selector, nodes, details) {
-		if (!nodes.length) {
+	API.logMutation = function logMutation(action, type, selector, node, details) {
+		if (!node) {
 			return;
 		}
 
@@ -69,12 +69,12 @@
 			'',
 			'font-weight:bold;',
 			'',
-			nodes,
+			node,
 		];
 
 		if (details) {
 			template += '%o';
-			templateArgs.push({ details });
+			templateArgs.push(details);
 		}
 
 		console.log(template, ...templateArgs);

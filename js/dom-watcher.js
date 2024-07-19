@@ -11,10 +11,10 @@
 	function logMutationsForNodes(nodes, action, type, getSelectors) {
 		nodes.forEach(node => {
 			getSelectors(node).forEach(selector => {
-				API.logMutation(action, type, selector, [node]);
+				API.logMutation(action, type, selector, node);
 
 				if (API.waitOnMutation) {
-					debugger
+					debugger;
 				}
 			});
 		});

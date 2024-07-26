@@ -8,11 +8,9 @@
 		ToggleControl,
 		Button,
 		TextControl,
-		Card,
-		CardHeader,
-		CardBody,
-		CardFooter,
-		CardDivider,
+		Panel,
+		PanelBody,
+		PanelRow,
 		Disabled,
 	} = wp.components;
 	const { apiFetch } = wp;
@@ -48,13 +46,14 @@
 			help: 'Logs all changes to the specified DOM elements to the browser; this includes creation of the element, attribute changes or updates to any child element',
 			additionalFields: [
 				{
-					key: 'domWatcherSelectors',
-					label: 'DOM Watcher Selectors (comma separated)',
-					type: 'text',
-				}, {
 					key: 'domWatcherPause',
 					label: 'Pause on DOM changes',
 					type: 'toggle',
+					help: 'Adds a "debugger" breakpoint when a change is detected',
+				}, {
+					key: 'domWatcherSelectors',
+					label: 'DOM Watcher Selectors (comma separated)',
+					type: 'text',
 				},
 			],
 		}, {
@@ -137,7 +136,7 @@
 			this.setState({ isSaving: false });
 		}
 
-		renderField(field) {
+		renderField(field, isConditional = false) {
 			const {
 				key,
 				label,
@@ -145,71 +144,74 @@
 				help = '',
 				default: defaultValue,
 			} = field;
+			let fieldComponent;
 
 			switch (type) {
 				case 'toggle':
-					return createElement(ToggleControl, {
+					fieldComponent = createElement(ToggleControl, {
 						label: label,
 						help: help,
 						checked: !!this.state[key] || defaultValue,
 						onChange: (newValue) => this.updateSetting(key, newValue),
 					});
+					break;
 
 				case 'text':
 				default:
-					return createElement(TextControl, {
+					fieldComponent = createElement(TextControl, {
 						label: label,
 						help: help,
 						value: this.state[key] || defaultValue || '',
 						onChange: (newValue) => this.updateSetting(key, newValue),
 					});
+					break;
 			}
+
+			if (isConditional) {
+				fieldComponent = this.conditionallyDisable(fieldComponent);
+			}
+
+			return createElement(PanelRow, {}, fieldComponent);
 		}
 
-		createRow(control) {
-			return createElement(CardBody, {}, control);
-		}
-
-		renderSetting(setting) {
+		renderSetting(setting, isConditional = false) {
 			const {
 				key,
+				label,
 				additionalFields,
 			} = setting;
 			const isEnabled = this.state[key];
 
 			return createElement(
-				Fragment,
-				{ key },
-				this.createRow(this.renderField(setting)),
-				isEnabled && additionalFields && additionalFields.map(field => this.createRow(this.renderField(field))),
+				PanelBody,
+				{
+					title: label,
+					initialOpen: true,
+				},
+				this.renderField(setting, isConditional),
+				isEnabled && additionalFields && additionalFields.map(field => this.renderField(field, isConditional)),
 			);
 		}
 
-		conditionallyDisable(isDisabled, content) {
+		conditionallyDisable(content) {
+			const isDisabled = !this.state?.enableDebugging;
+
 			return isDisabled ? createElement(Disabled, {}, content) : content;
 		}
 
 		render() {
 			const [globalSetting, ...modulesSettings] = settingsConfig;
 
-			const cardHeader = createElement(CardHeader, {}, this.state.headerText);
-			const cardDivider = createElement(CardDivider);
-			const cardFooter = createElement(CardFooter, {}, createElement(Button, {
-				isPrimary: true,
-				isBusy: this.state.isSaving,
-				onClick: this.saveSettings,
-			}, this.state.isSaving ? 'Saving...' : 'Save Settings'));
-
 			return createElement(
-				Card,
-				{},
-				cardHeader,
+				Panel,
+				{ header: this.state.headerText },
 				this.renderSetting(globalSetting),
-				cardDivider,
-				this.conditionallyDisable(!this.state.enableDebugging,
-					modulesSettings.map(setting => this.renderSetting(setting)),
-				),
-				cardFooter,
+				modulesSettings.map(setting => this.renderSetting(setting, true)),
+				createElement(PanelBody, { initialOpen: true }, createElement(Button, {
+					isPrimary: true,
+					isBusy: this.state.isSaving,
+					onClick: this.saveSettings,
+				}, this.state.isSaving ? 'Saving...' : 'Save Settings')),
 			);
 		}
 	}

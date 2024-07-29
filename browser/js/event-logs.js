@@ -1,4 +1,9 @@
 (function(API) {
+	if (API._initialized.event_logger) {
+		return;
+	}
+	API._initialized.event_logger = true;
+
 	// Store original methods
 	const originalAddEventListener = EventTarget.prototype.addEventListener;
 	const originalRemoveEventListener = EventTarget.prototype.removeEventListener;

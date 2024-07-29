@@ -1,4 +1,9 @@
 (function(API, $) {
+	if (API._initialized.event_logger_jquery) {
+		return;
+	}
+	API._initialized.event_logger_jquery = true;
+
 	// WeakMap to store wrapped listeners
 	const listenerMap = new WeakMap();
 

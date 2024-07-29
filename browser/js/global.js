@@ -2,7 +2,7 @@
 	if (API._initialized) {
 		return;
 	}
-	API._initialized = true;
+	API._initialized = {};
 
 	const isDarkMode = window?.matchMedia('(prefers-color-scheme: dark)')?.matches;
 

@@ -1,4 +1,9 @@
 (function(API) {
+	if (API._initialized.dom_watcher) {
+		return;
+	}
+	API._initialized.dom_watcher = true;
+
 	function getMatchingSelectors(node, exact = false) {
 		if (!(node instanceof Element)) {
 			return [];

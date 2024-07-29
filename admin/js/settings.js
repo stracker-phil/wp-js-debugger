@@ -20,7 +20,7 @@
 			key: 'enableDebugging',
 			label: 'Enable Debugging',
 			type: 'toggle',
-			help: 'Turn on debugging features',
+			help: 'Use this to quickly turn off all debugging options. While disabled, no debug code is generated or loaded by this plugin.',
 		}, {
 			key: 'globalDOMSearch',
 			label: 'Global DOM Search',

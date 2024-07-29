@@ -204,13 +204,13 @@ class Debugger {
 		];
 
 		$early_code = $this->get_debugging_script_no_deps();
-		$content    = preg_replace( '/<head[^>]*?>/', "$0\n$early_code", $content );
+		$content    = preg_replace( '/<head[^>]*?>/', "$0\n$early_code", $content, 1 );
 
 		foreach ( $jquery_patterns as $pattern ) {
 			if ( preg_match( $pattern, $content ) ) {
 				$jquery_code = $this->get_debugging_script_after_jquery();
 
-				$content = preg_replace( $pattern, "$0\n$jquery_code", $content );
+				$content = preg_replace( $pattern, "$0\n$jquery_code", $content, 1 );
 				break;
 			}
 		}
